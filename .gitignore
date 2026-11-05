@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+data/
+runs/
+*.csv
+notebooks/.ipynb_checkpoints/
+_*.py
+_*.sh

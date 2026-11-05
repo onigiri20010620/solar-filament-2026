@@ -1,0 +1,293 @@
+% =============================================================================
+% Solar Filament Segmentation Challenge 2026 -- technical report (DRAFT SKELETON)
+% 主催者の Overleaf テンプレート（https://www.overleaf.com/read/vjztpvrnbrdh）をそのまま使用。
+% 黒字＝テンプレートの固定文（変更禁止）。\guide{} の灰色＝自分の文に置き換える所。
+% 日本語のコメント（%）は執筆メモ。提出前に \guideStyletrue → \guideStylefalse にする。
+% 本文は Acknowledgment と References を除いて 4 ページ以内。
+% 数値は CLAUDE.md の記録（2026-11-05 時点）。最終提出の構成が変わったら表を更新すること。
+% =============================================================================
+
+\documentclass[sigconf]{acmart}
+\input{preamble}
+
+% Guide styling: \guideStyletrue = show gray italic hints; \guideStylefalse = omit them
+\guideStyletrue
+% \guideStylefalse
+
+\begin{document}
+
+\title{Detect-then-Refine Instance Segmentation of Solar Filaments with Learned Instance Scoring}  % Replace this with your title
+\subtitle{A Solution to the Solar Filament Segmentation Challenge 2026} % DO NOT CHANGE
+
+
+\author{\guide{Firstname Lastname}}   % <- 著者1（学生）
+\affiliation{%
+  \institution{\guide{Your Institution}}  % <- Optional (remove if you are not currently affiliated with any institute)
+  \city{\guide{City}}
+  \country{Japan}
+}
+\email{first.author@example.com}   % <- Replace with your own email
+
+\author{\guide{Second Author}}   % <- 著者2（博士課程の学生）
+\affiliation{%
+  \institution{\guide{Your Institution}}  % <- Optional (remove if you are not currently affiliated with any institute)
+  \city{\guide{City}}
+  \country{Japan}
+}
+\email{second.author@example.com}  % <- Replace with your own email
+
+\begin{abstract}
+    This report describes our solution to the Solar Filament Segmentation Challenge~2026, a Kaggle competition on automatic segmentation of solar filaments in GONG H-$\alpha$ observations.
+    Our pipeline separates \emph{detection} from \emph{delineation}: a full-resolution (2048\,px) U-Net trained with a Focal+Dice loss produces a filament probability map, from which instance candidates are extracted by hysteresis thresholding and orientation-aware gap bridging; each candidate is then re-drawn by a second, instance-conditioned network (an ensemble of UNet++ and ConvNeXt-T U-Nets) that sees the image, the probability map, the candidate and its neighbours; finally a gradient-boosted scorer trained on out-of-fold predictions estimates each candidate's expected contribution to Panoptic Quality (PQ) and discards unlikely instances.
+    All design decisions were made on 5-fold out-of-fold predictions over the 707 training images, scored against every expert annotation exactly as in the official metric, with paired-bootstrap confidence intervals.
+    The final model reaches an out-of-fold PQ of \guide{0.461} (public leaderboard \guide{0.40}) without using any external or leaked data, compared with an inter-expert agreement of PQ~0.35 on the same images.
+    \guide{(Abstract を最終構成に合わせて更新)}
+\end{abstract}
+
+\maketitle
+
+\ifguideStyle
+\noindent{\color{gray!65}\itshape
+Guide mode is on.}
+\par\medskip
+\fi
+
+\guide{Please limit your report to four (4) pages, excluding the Acknowledgment and References sections. Throughout this document, please follow these considerations:
+\begin{itemize}
+    \item Do not alter any text that is currently in black color (except for the emails under authors' name).
+    \item Replace all gray text with your own.
+    \item When you are done with the report, please replace \texttt{\textbackslash guideStyletrue} with \texttt{\textbackslash guideStylefalse}, to remove any gray text. Alternatively, you can remove any text wrapped in \texttt{\textbackslash guide\{\}},
+    \item Be as succinct as possible, and only provide details regarding your own work. For example, there is no need to discuss what solar filaments are, or why filament segmentation matters.
+    \item If you must, you can add extra sections.
+\end{itemize}}
+
+
+% ==================================== %
+%              INTRODUCTION            %
+% ==================================== %
+\section{Introduction}
+    This report goes over the details of our submitted solution to the Solar Filament Segmentation Challenge~2026 \cite{filament-segmentation-2026}. The challenge, launched on July~10,~2026, is organized by the Earth-Space AI Research (ESAIR) Lab\footnote{\href{https://www.esairlab.com/home}{www.esairlab.com/}}. This challenge utilizes the MAGFiLO dataset for evaluation of the segmentation algorithms \cite{ahmadzadeh2024dataset}.
+    % --- ここから自分の文 ---
+    The task is \emph{instance} segmentation evaluated with Panoptic Quality (PQ) \cite{kirillov2019panoptic}: a predicted filament counts as a true positive only if its IoU with a ground-truth filament exceeds~0.5, and every image is scored separately against each of up to three expert annotators while a single prediction set is submitted.
+    Three properties of the data drove our design.
+    (i)~Labels are noisy by construction: scoring one expert's annotation against another's gives PQ~$\approx$0.35, so a large part of the error is irreducible.
+    (ii)~PQ is extremely sensitive to the exact outline: eroding the ground truth by one pixel lowers the PQ of a U-Net from 0.42 to 0.29 in our experiments, so pixel-accurate delineation matters more than detecting additional faint filaments.
+    (iii)~Most residual errors are small, faint filaments drawn by a single expert, whose inclusion is a per-instance judgement rather than a per-pixel one.
+    We therefore built a detect-then-refine pipeline whose stages address delineation and instance selection separately, and we made every decision on out-of-fold predictions over the full training set with confidence intervals, since differences below $\pm$0.004~PQ turned out to be indistinguishable from seed noise.
+    We used only the competition training data; no external H-$\alpha$ images, magnetograms, or temporally adjacent observations were used at training or inference time.
+    % 必要なら：Discussion で主催者が「リーク提出」に言及していることを踏まえ、公開順位ではなく手元の評価で判断した旨を一言。
+
+
+% ==================================== %
+%              METHODOLOGY             %
+% ==================================== %
+\section{Methodology}\label{sec:methodology}
+    \guide{Explain your methodology, ensuring that the following items are included:
+    \begin{itemize}
+        \item (for novel algorithms) a detailed description of the algorithm introduced for segmentation,
+        \item (for existing algorithms) a quick review of the algorithm used for segmentation, and appropriate citation(s),
+        \item a detailed description of the end-to-end data pipeline, including pre-processing and post-processing,
+        \item (for ML models) a detailed description of any sampling strategy including train-val-test splits,
+        \item a graphic illustrating the entire data pipeline,
+        \item one or more graphics showing a few examples of the segmentations.
+    \end{itemize}}
+
+    \begin{figure*}[t]
+        \centering
+        % 図は report/make_figs.py で生成（figures/pipeline.pdf）。Overleaf には figures/ フォルダごとアップロードする。
+        \includegraphics[width=\textwidth]{figures/pipeline}
+        \caption{Overview of the pipeline on a 700\,px crop of a training image (out-of-fold prediction). (a)~Input; (b)~Stage~1 probability map at full resolution; (c)~instance candidates after hysteresis thresholding and gap bridging; (d)~instances after the Stage~2 refiner and the instance scorer. Boxes summarise each step; thresholds are those of the final submission.}
+        \label{fig:pipeline}
+    \end{figure*}
+
+    \subsection{Data and validation protocol}
+        The training set contains 707 full-disk GONG H-$\alpha$ images (2048$\times$2048) with 1{,}154 image--expert annotation sets (8{,}199 polygons) from 37 annotators; the test set contains 180 images.
+        Every image--expert pair is one training sample, so an image annotated by three experts appears three times with different targets; this matches the scoring, which evaluates the prediction against each expert separately.
+        We split the images (not the annotation sets) into 5 folds with a fixed seed. All models are trained 5 times, and all development metrics in this report are \emph{out-of-fold} (OOF) PQ over the 707 training images, computed with the organizers' evaluation code against every expert.
+        Chirality labels (categories 1--4), spines, bounding boxes and areas were not used.
+        % 注: 専門家ごとの別サンプル化は「ソフトラベルより PQ に合う」ことを実験で確認済み（soft -0.005, STAPLE -0.002）。
+
+    \subsection{Pre-processing}
+        Images are used at native resolution (2048\,px) as single-channel inputs, scaled to $[0,1]$ and normalised with fixed constants ($(x-0.45)/0.225$); no flat-fielding or limb-darkening correction is applied (a corrected multi-channel input gave no improvement, Sec.~\ref{sec:ablation}).
+        Training augmentation is limited to the dihedral group (random flips and $90^\circ$ rotations) and a random affine intensity change ($\times[0.85,1.15]$, $\pm 15$ grey levels); blur, gamma and noise augmentation did not help.
+
+    \subsection{Stage 1: full-resolution detector}
+        The detector is a U-Net \cite{ronneberger2015unet} with an ImageNet-pretrained ResNet-34 encoder \cite{he2016resnet} implemented in Segmentation Models PyTorch \cite{iakubovskii2019smp}.
+        It is trained on 1024$\times$1024 crops (batch~4, 40 epochs of $2\times$ the number of training samples, AdamW with weight decay $10^{-4}$, one-cycle schedule with peak learning rate $3\cdot10^{-4}$, mixed precision; about 95~min per fold on an 8\,GB RTX~3070~Ti). 70\,\% of the crops are centred on a randomly chosen annotated filament, so that small and large filaments are seen at comparable rates, and the remaining 30\,\% are uniform over the disk.
+        The loss is Focal \cite{lin2017focal} ($\gamma=2$, weight~10) plus soft Dice; replacing BCE by this loss was the single largest modelling gain we found (+0.02~PQ on fold~0 at 2048\,px, whereas it had no effect at 1024\,px).
+        Inference runs on the full image with 8-fold dihedral test-time augmentation (rotations and flips), averaged in probability space.
+        Earlier 1024\,px models (ResNet-34, EfficientNet-B3, ConvNeXt-T, UNet++, up to 35 models plus a stacking model) were all superseded by the five folds of this single configuration (Table~\ref{tab:progress}); adding 2048\,px detectors with other encoders (UNet++, EfficientNetV2-S, ConvNeXt-T) to the probability average did not improve on it.
+
+    \subsection{Candidate extraction}
+        Instances are first cut from the averaged probability map $p$ by hysteresis thresholding: connected components of $p \ge 0.15$ are kept if they contain a pixel with $p \ge 0.8$, and the final mask of each component is $p \ge 0.6$ (all three thresholds tuned on OOF PQ), followed by a morphological closing of radius~2.
+        Because PQ penalises a fragmented filament twice (one FN plus one FP), we bridge gaps of up to 30\,px between fragments whose end-point orientations agree within $30^\circ$ (estimated over the last 20\,px of each skeleton end, for fragments with elongation $\ge 3$), and remove components smaller than 25\,px$^2$ or lying outside 0.9 of the disk radius.
+
+    \subsection{Stage 2: instance-conditioned refiner}
+        Each candidate is cropped with a square window of side $1.3\,s + 48$\,px ($s$ = candidate extent), resized to 256$\times$256, and fed to a second network with four input channels: the image, the Stage-1 probability map, the candidate mask, and the union of all other candidates.
+        The target is, for each expert, the ground-truth filament that best overlaps the candidate (IoU $\ge 0.2$); one (candidate, expert) pair is one training sample, so the refiner learns the distribution of expert outlines rather than their average.
+        Two refiners are trained (UNet++ \cite{zhou2018unetpp} with ResNet-34, and U-Net with a ConvNeXt-T encoder \cite{liu2022convnext}; Focal+Dice, 25 epochs, batch~32, AdamW with a one-cycle schedule peaking at $3\cdot10^{-4}$, dihedral augmentation; 10--20~min per fold) and their outputs are averaged with 4-rotation TTA.
+        The refined mask is thresholded at 0.5 and pasted back at full resolution; all connected components touching the original candidate are kept, overlaps between candidates are resolved in favour of the higher probability, and a candidate whose refined area falls below 30\,\% of the original is left unchanged.
+        Training targets for the refiner, and its inputs, come from the OOF Stage-1 predictions, so the refiner never sees in-sample probability maps; candidates without any ground truth at IoU $\ge 0.2$ are not used for training and are left to the scorer.
+
+    \subsection{Instance scoring and selection}
+        PQ rewards a kept instance by its IoU if it matches and penalises it by $0.5$ otherwise, so the optimal rule keeps a candidate when its expected contribution $h\cdot m - 0.5\,(1-h)$ is positive, where $h$ is the match probability and $m$ the IoU given a match.
+        We fit two histogram gradient-boosting models on OOF candidates (a \emph{hurdle} model: $h$ as a classifier, $m$ as a regressor on matched candidates) from 20 per-instance features: size and shape (log-area, elongation, skeleton length, width, fill ratio), probability statistics inside the instance (mean, max, s.d., 10th percentile, fractions above 0.7 and 0.9, spread between the five fold models), probability in a ring around the instance, intensity contrast of the instance and of its core against the surroundings, ring texture, mean intensity, normalised distance from disk centre, and distance to the nearest other candidate.
+        Each training row is weighted by the number of experts annotating that image, mirroring the metric, which counts an image once per expert.
+        A candidate is kept if $\hat h \hat m \ge 0.2$ and its mean probability is $\ge 0.7$; the thresholds were selected on OOF PQ and agree with the theoretical value $\tau \approx \mathrm{PQ}/2$.
+
+    \subsection{Final post-processing}
+        Kept masks are eroded by 0.5\,px (one-pixel erosion applied to half of the boundary via a distance transform) and encoded as COCO RLE.
+        The erosion was motivated by a systematic offset between OOF and public scores (Sec.~\ref{sec:lb}) and improved the public score by +0.01, while any erosion or dilation of a full pixel hurts.
+        Masks of one image never overlap.
+
+    \begin{figure*}[t]
+        \centering
+        % 図は report/make_figs.py で生成（figures/examples.pdf）。上: 良い例 / 中: 普通 / 下: 悪い例（いずれも OOF 予測, 専門家3人の画像）
+        \includegraphics[width=\textwidth]{figures/examples}
+        \caption{Out-of-fold predictions of the final model on three training images (rows: image-level PQ 0.60, 0.46 and 0.35), scored separately against each of the three experts (columns). Ground truth is filled green when matched (IoU\,$>$\,0.5) and orange when missed; predictions are outlined in white when matched and red otherwise. The same prediction set is a hit for one expert and a miss for another (second row, right-limb filament; third row, upper filament), illustrating the annotator disagreement that bounds the attainable PQ.}
+        \label{fig:examples}
+    \end{figure*}
+
+% ==================================== %
+%              EVALUATION              %
+% ==================================== %
+\section{Evaluation}\label{sec:evaluation}
+    \guide{Explain your evaluation. This includes:
+    \begin{itemize}
+        \item the evaluation strategy,
+        \item plots and/or tables showing the performance of the segmentation algorithm (please include error bars and uncertainty measures whenever possible),
+        \item strengths and weaknesses of the proposed algorithm, and possible strategies for improvement.
+    \end{itemize}}
+
+    \subsection{Evaluation strategy}
+        All numbers are OOF PQ on the 707 training images against all 1{,}154 expert annotation sets, computed with the organizers' self-evaluation code.
+        To decide whether a change helps we use a paired bootstrap over images \cite{efron1979bootstrap} (10{,}000 resamples) and report the 95\,\% interval of the PQ difference; we also report a ``cross'' score in which post-processing thresholds tuned on one half of the images are applied to the other half, to guard against over-tuning.
+        Single-fold (141-image) comparisons proved unreliable: several +0.01 gains on fold~0 vanished on 707 images, and re-training with a different seed alone moves fold-0 PQ by $\pm$0.006.
+
+    \begin{table}[t]
+        \caption{Development history (OOF PQ on 707 training images; public leaderboard on $\sim$90 test images where submitted).}
+        \label{tab:progress}
+        \small
+        \begin{tabular}{@{}lccc@{}}
+            \toprule
+            Method & OOF PQ & SQ / RQ & Public \\
+            \midrule
+            Inter-expert agreement (one expert vs.\ another) & 0.353 & -- & -- \\
+            Rule-based thresholding & 0.191 & -- & 0.17 \\
+            U-Net R34, 1024\,px, single model & 0.397$^\dagger$ & 0.668 / 0.594 & 0.33 \\
+            20 models (1024\,px, 4 configs $\times$ 5 folds) + scorer & 0.431 & -- & 0.37 \\
+            35 models + stacking model & 0.441 & -- & -- \\
+            Stage 1 only: 2048\,px U-Net R34, Focal+Dice, 5 folds & 0.444 & -- & -- \\
+            \quad + 8-fold TTA & 0.447 & -- & -- \\
+            \quad + Stage 2 refiner (R34) & 0.450 & -- & 0.39 \\
+            \quad + refiner UNet++ $\times$ R34 ensemble & 0.457 & -- & 0.39 \\
+            \quad + expert-weighted hurdle scorer & 0.458 & -- & \textbf{0.40} \\
+            \quad + refiner UNet++ $\times$ ConvNeXt-T (final) & \textbf{0.461} & 0.683 / 0.675 & 0.39 \\
+            \bottomrule
+        \end{tabular}
+        \par\smallskip\footnotesize $^\dagger$single 141-image validation split. Public scores are on $\sim$90 test images (sampling s.d.\ $\approx$0.012).
+    \end{table}
+
+    \begin{figure*}[t]
+        \centering
+        % report/make_eval_figs.py で生成。主催者の自己評価ノートブックと同じ3種類の図に、専門家どうし（灰色）を重ねたもの
+        \includegraphics[width=\textwidth]{figures/eval_dist}
+        \caption{The three diagnostics of the organizers' self-evaluation notebook, computed on the 707 training images out-of-fold (blue) and, for reference, for one expert's annotation scored against another expert's (gray, all ordered pairs of experts on the same image). Left/centre: IoU and Dice of all overlapping (ground truth, prediction) pairs, with means as dashed lines. Right: number of overlapping partners per ground-truth filament (1:n) and per prediction (n:1).}
+        \label{fig:evaldist}
+    \end{figure*}
+
+    \subsection{Results}
+        Table~\ref{tab:progress} summarises the progression.
+        Moving the detector from 1024\,px to 2048\,px with the Focal+Dice loss (0.444 with a single configuration) outperformed a 35-model 1024\,px ensemble with a stacking model (0.441), and every later gain came from the instance-level stages: the refiner adds +0.0056 (95\,\% CI [+0.0015, +0.0097]), the UNet++/ConvNeXt-T refiner ensemble a further +0.0027 ([+0.0008, +0.0046]), and the expert-weighted hurdle scorer +0.0014 ([+0.0003, +0.0026]).
+        The final OOF PQ is 0.461 (SQ 0.683, RQ 0.675; TP 5{,}133, FP 1{,}874, FN 3{,}066 over 8{,}199 annotated filaments), against 0.340 (SQ 0.634, RQ 0.536) when one expert's annotation is scored against another's on the same images.
+        Figure~\ref{fig:evaldist} shows the diagnostics the organizers use beyond PQ. Over all overlapping pairs the mean IoU is 0.60 and the mean Dice 0.73 (inter-expert: 0.52 and 0.66), and the model's distribution is shifted to the right of the inter-expert one over the whole range.
+        One-to-many and many-to-one relations are rare: 1.7\,\% of ground-truth filaments overlap two or more predictions (split; inter-expert 3.2\,\%) and 4.3\,\% of predictions overlap two or more ground-truth filaments (merge; inter-expert 3.2\,\%). 21\,\% of ground-truth filaments overlap no prediction at all (inter-expert 18\,\%), while only 10\,\% of predictions overlap no ground truth (inter-expert 18\,\%), reflecting the conservative instance scorer.
+        PQ per expert ranges from 0.34 to 0.50 over the 24 experts with at least 20 images and correlates with the expert's typical filament width ($r = 0.37$): experts who draw wider outlines are matched more often.
+
+    \subsection{Public leaderboard vs.\ out-of-fold score}\label{sec:lb}
+        Across eleven submissions the public score was $0.87 \pm 0.02$ times the OOF PQ, consistently, and the ranking of submissions was preserved within the $\pm$0.012 sampling noise of a 90-image subset (estimated by resampling the training images).
+        We could not attribute the offset to any property visible in the training data (observatory, year, image quality, number of experts, scoring code); the most consistent explanation is a thinner or sparser annotation style of the test experts, supported by the fact that a 0.5\,px erosion raises the public score while lowering the OOF score, and that OOF PQ against the thinnest-drawing third of experts is 0.04 lower than against the thickest third.
+        We therefore selected the final submission by OOF PQ rather than by public score.
+
+    \begin{table}[t]
+        \caption{Ablations and negative results (OOF PQ unless noted; $\Delta$ relative to the corresponding baseline, with 95\,\% paired-bootstrap interval where available).}
+        \label{tab:ablation}
+        \small
+        \begin{tabular}{@{}lr@{}}
+            \toprule
+            Change & $\Delta$PQ \\
+            \midrule
+            \multicolumn{2}{@{}l}{\emph{Training targets and losses (fold 0, 1024\,px)}} \\
+            Soft (expert-averaged) targets & $-0.005$ \\
+            STAPLE-weighted targets & $-0.002$ \\
+            clDice ($w=0.5$) & $-0.023$ \\
+            BCE+Lov\'asz & $+0.001$ \\
+            Auxiliary spine head & $-0.008$ \\
+            5$\times$ loss weight on barbs & $-0.004$ \\
+            Expert-group-specific heads & $-0.008$ \\
+            \multicolumn{2}{@{}l}{\emph{Detector (707 images)}} \\
+            EMA weights + seeing augmentation & $-0.005$ [$-0.008,-0.001$] \\
+            Mixing in EfficientNetV2-S / UNet++ detectors & $-0.004$ / $-0.001$ \\
+            \multicolumn{2}{@{}l}{\emph{Candidates and refiner (707 images)}} \\
+            Component-tree + DP selection instead of hysteresis & $-0.000$ \\
+            Per-instance width threshold (oracle: $+0.027$) & $+0.000$ \\
+            Rotated, native-scale refiner crops & $-0.003$ \\
+            Refiner 8-fold TTA (vs.\ 4 rotations) & $-0.001$ [$-0.002,+0.001$] \\
+            Keeping only the largest refined component & $-0.002$ \\
+            Refiner trained on expert-averaged targets & $-0.002$ \\
+            Refiner with scSE attention & $-0.001$ \\
+            End-point extension / gap filling heuristics & $-0.008$ \\
+            \multicolumn{2}{@{}l}{\emph{Other}} \\
+            80 instead of 40 epochs (fold 0) & $-0.005$ \\
+            Limb-darkening-corrected + CLAHE input channels (fold 0) & $-0.006$ \\
+            8-fold TTA on the 1024\,px ensemble & $-0.002$ \\
+            Erosion 1\,px instead of 0.5\,px (public score) & $-0.02$ \\
+            \bottomrule
+        \end{tabular}
+        \par\smallskip\footnotesize Fold-0 rows are single-split comparisons (141 images) and are only indicative; 707-image rows are OOF with the full pipeline of the time.
+    \end{table}
+
+    \subsection{Error analysis, strengths and weaknesses}\label{sec:ablation}
+        Decomposing the residual error of the final model (Table~\ref{tab:errors}): of the 3{,}066 false negatives, 59\,\% are filaments with no overlapping prediction at all, and 65\,\% of those are smaller than 1{,}000\,px$^2$ (matched rate 30\,\% below 400\,px$^2$, 58\,\% for 400--1{,}000\,px$^2$, $\approx$70\,\% above). Filaments drawn by only one of the experts of an image are matched 34\,\% of the time, versus 83\,\% for filaments on which at least two experts agree (IoU $>0.5$ between experts).
+        The second group of errors is size: 26\,\% of false negatives are detected but too short or too long for IoU $>0.5$, and 39\,\% of false positives are the corresponding partial overlaps. The pixels we miss on a correctly detected filament have the same contrast as the pixels on which experts disagree with each other ($-1.5\,\%$ vs.\ background, against $-11\,\%$ on the filament core), i.e.\ they are at the limit of what the image supports, and the ``correct'' extent is a per-expert convention.
+        Fragmentation and merging, which PQ penalises twice, together account for only 15\,\% of the errors after gap bridging and the refiner.
+        An oracle that fixed each error class in isolation would gain +0.096 (missed filaments), +0.069 (extent), +0.045 (boundary precision to SQ 0.75), +0.029 (merges) and +0.011 (splits).
+
+    \begin{table}[t]
+        \caption{Error decomposition of the final model (707 images, out-of-fold). FN classes are assigned by the best-overlapping prediction, FP classes by the best-overlapping ground truth.}
+        \label{tab:errors}
+        \small
+        \begin{tabular}{@{}lr@{\hspace{1.5em}}lr@{}}
+            \toprule
+            False negatives (3{,}066) & & False positives (1{,}874) & \\
+            \midrule
+            no overlapping prediction & 1{,}807 & partial overlap (extent) & 736 \\
+            detected, too small & 489 & drawn by another expert only & 378 \\
+            merged with a neighbour & 398 & no ground truth & 364 \\
+            detected, too large & 300 & fragment of a filament & 223 \\
+            split into pieces & 72 & merge of two filaments & 173 \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+        Strengths: the pipeline is a single detector configuration plus light instance-level models, runs in about \guide{5}\,s per 2048\,px image on an 8\,GB GPU (five detector folds with 8-fold TTA $\approx$3\,s, candidates, two refiners and the scorer $\approx$2\,s), exceeds inter-expert agreement by a wide margin, and all choices are backed by confidence intervals.
+        Weaknesses: faint, small and single-expert filaments; sensitivity to the annotation style of unseen experts (Sec.~\ref{sec:lb}); the refiner only re-draws existing candidates and cannot recover missed filaments.
+        Possible improvements: \guide{(例) modelling annotator style explicitly at inference (e.g.\ conditioning the refiner on an estimated width prior), semi-supervised use of unlabelled GONG images, and a joint detector--refiner training.}
+
+    \guide{(TODO: 推論時間はデモノートブックで正確に測って置き換える。Overview の「end-to-end computational efficiency」も審査対象)}
+
+
+% ==================================== %
+%            ACKNOWLEDGMENT            %
+% ==================================== %
+\section{Acknowledgment}\label{sec:acknowledgment}
+    % Do not change
+    The organization of the Filament Segmentation Challenge 2026 is partially supported by the U.S. National Science Foundation (NSF) under Grant No. 2209912 and 2433781, directorate for Computer and Information Science and Engineering (CSE), and Office of Advanced Cyberinfrastructure (OAC), and Grant No. 2511630, AST Division Of Astronomical Sciences and MPS Directorate for Mathematical and Physical Sciences.
+
+    The Filament Segmentation Challenge 2026 is sponsored by the U.S. National Science Foundation (NSF) National Solar Observatory (NSO).
+
+    This work utilizes GONG data obtained by the NSO Integrated Synoptic Program, managed by the National Solar Observatory, which is operated by the Association of Universities for Research in Astronomy (AURA), Inc. under a cooperative agreement with the National Science Foundation and with contribution from the National Oceanic and Atmospheric Administration. The GONG network of instruments is hosted by the Big Bear Solar Observatory, High Altitude Observatory, Learmonth Solar Observatory, Udaipur Solar Observatory, Instituto de Astrofísica de Canarias, and Cerro Tololo Interamerican Observatory.
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{main}
+
+\end{document}

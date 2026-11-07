@@ -269,7 +269,7 @@ Guide mode is on.}
             \bottomrule
         \end{tabular}
     \end{table}
-        Strengths: the pipeline is a single detector configuration plus light instance-level models, runs in about \guide{5}\,s per 2048\,px image on an 8\,GB GPU (five detector folds with 8-fold TTA $\approx$3\,s, candidates, two refiners and the scorer $\approx$2\,s), exceeds inter-expert agreement by a wide margin, and all choices are backed by confidence intervals.
+        Strengths: the pipeline is a single detector configuration plus light instance-level models, runs in 5.5\,s per 2048\,px image on an 8\,GB RTX~3070~Ti (five detector folds with 8-fold TTA 2.9\,s, candidates and two refiners 1.8\,s, scorer and post-processing 0.7\,s; 16.5\,min for the 180 test images), exceeds inter-expert agreement by a wide margin, and all choices are backed by confidence intervals.
         Weaknesses: faint, small and single-expert filaments; sensitivity to the annotation style of unseen experts (Sec.~\ref{sec:lb}); the refiner only re-draws existing candidates and cannot recover missed filaments.
         Possible improvements: \guide{(例) modelling annotator style explicitly at inference (e.g.\ conditioning the refiner on an estimated width prior), semi-supervised use of unlabelled GONG images, and a joint detector--refiner training.}
 

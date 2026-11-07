@@ -54,8 +54,11 @@ python scripts/predict.py --images <path>/test/test_images --weights weights --o
 ```
 
 `submission.csv` has the two columns required by the competition (`filament_id`, `segmentation_rle`) and no overlapping
-masks. Inference takes about 5 s per image on an RTX 3070 Ti (8 GB). The notebook `notebooks/demo.ipynb` runs the same
-steps with intermediate visualisations.
+masks. Inference takes about 5.5 s per image on an RTX 3070 Ti (8 GB): detector with 5 folds × 8 TTA 2.9 s,
+candidates + two refiners 1.8 s, scorer + post-processing 0.7 s; the 180 test images take 16.5 min. Running this
+command on the test set reproduced our submitted CSV up to floating-point noise (1088 vs 1089 instances, every
+instance matching with IoU > 0.9, 80 % bit-identical). The notebook `notebooks/demo.ipynb` runs the same steps
+with intermediate visualisations.
 
 To score a prediction on the training images (out-of-fold predictions are needed for a fair number):
 

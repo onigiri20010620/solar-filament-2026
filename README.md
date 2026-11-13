@@ -76,6 +76,17 @@ python scripts/evaluate.py --csv submission_train.csv --data <path to MAGFiLO_1.
 
 All random seeds are fixed; the image-level 5-fold split is `solarfil.data.folds`.
 
+## Credits
+
+Some components follow ideas shared publicly during the competition, re-implemented here and kept only after they
+improved our out-of-fold PQ (about +0.009 in total; see the report, Introduction):
+
+- Focal + Dice loss for the detector — suggested in the competition discussion forum.
+- From the public notebook by Kaggle user *tushhaaarrrr*,
+  [Solar Filament Segmentation 2026 (0.40)](https://www.kaggle.com/code/tushhaaarrrr/solar-filament-segmentation-2026-0-40):
+  the UNet++ ResNet-34 + ConvNeXt-T refiner pair, keeping all refined components that touch the candidate,
+  the hurdle instance score (match probability × matched IoU), and weighting scorer rows by the number of experts.
+
 ## License
 
 Code: MIT. Model weights: released under the same license; the ImageNet-pretrained encoders come from

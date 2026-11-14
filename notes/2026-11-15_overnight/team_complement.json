@@ -1,0 +1,24 @@
+{
+ "PQ": {
+  "v18": 0.4574,
+  "ours": 0.4453,
+  "(3) v18 + ours-only hits (oracle)": 0.4805,
+  "(2) v18, better shape of the two (oracle)": 0.4684,
+  "(2) v18, union of the two shapes": 0.4563,
+  "(2) v18, intersection of the two shapes": 0.4529
+ },
+ "annotated filaments: hit by": {
+  "both": 4640,
+  "neither": 2655,
+  "v18 only": 447,
+  "ours only": 457
+ },
+ "on filaments both hit, mean IoU": {
+  "v18": 0.6851,
+  "ours": 0.6816,
+  "better of the two": 0.7029,
+  "union": 0.6849,
+  "intersection": 0.6817,
+  "corr(v18 IoU, ours IoU)": 0.794
+ }
+}

@@ -1,0 +1,45 @@
+{
+ "v18 (cross-fitted scorer, clf 0.2, rule)": 0.4506,
+ "tree + v18 refiner + DP, tau 0.12, rule True": 0.4341,
+ "tree + v18 refiner + DP, tau 0.12, rule False": 0.4254,
+ "tree + v18 refiner + DP, tau 0.16, rule True": 0.4375,
+ "tree + v18 refiner + DP, tau 0.16, rule False": 0.4355,
+ "tree + v18 refiner + DP, tau 0.2, rule True": 0.4389,
+ "tree + v18 refiner + DP, tau 0.2, rule False": 0.4401,
+ "tree + v18 refiner + DP, tau 0.24, rule True": 0.4381,
+ "tree + v18 refiner + DP, tau 0.24, rule False": 0.44,
+ "tree + v18 refiner + DP, tau 0.28, rule True": 0.4365,
+ "tree + v18 refiner + DP, tau 0.28, rule False": 0.4397,
+ "best vs v18": {
+  "setting": "tree + v18 refiner + DP, tau 0.2, rule False",
+  "PQ": 0.4401,
+  "mean diff": -0.0105,
+  "95% interval": [
+   -0.0157,
+   -0.0052
+  ],
+  "P(better)": 0.0
+ },
+ "per fold (v18, best)": [
+  [
+   0.443,
+   0.4458
+  ],
+  [
+   0.4666,
+   0.4566
+  ],
+  [
+   0.4586,
+   0.4477
+  ],
+  [
+   0.4493,
+   0.4343
+  ],
+  [
+   0.4368,
+   0.4146
+  ]
+ ]
+}

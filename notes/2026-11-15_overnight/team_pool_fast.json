@@ -1,0 +1,84 @@
+{
+ "candidates": {
+  "v18": 5400,
+  "ours": 4459
+ },
+ "A clf 0.12 rule True": 0.4497,
+ "A clf 0.12 rule False": 0.4453,
+ "A clf 0.16 rule True": 0.45,
+ "A clf 0.16 rule False": 0.4464,
+ "A clf 0.2 rule True": 0.4506,
+ "A clf 0.2 rule False": 0.4492,
+ "A clf 0.24 rule True": 0.4493,
+ "A clf 0.24 rule False": 0.4476,
+ "A clf 0.28 rule True": 0.4472,
+ "A clf 0.28 rule False": 0.4471,
+ "A clf 0.32 rule True": 0.4425,
+ "A clf 0.32 rule False": 0.4428,
+ "B clf 0.12 rule True": 0.4505,
+ "B clf 0.12 rule False": 0.4465,
+ "B clf 0.16 rule True": 0.4501,
+ "B clf 0.16 rule False": 0.4482,
+ "B clf 0.2 rule True": 0.4498,
+ "B clf 0.2 rule False": 0.4488,
+ "B clf 0.24 rule True": 0.4493,
+ "B clf 0.24 rule False": 0.4495,
+ "B clf 0.28 rule True": 0.4478,
+ "B clf 0.28 rule False": 0.4481,
+ "B clf 0.32 rule True": 0.4434,
+ "B clf 0.32 rule False": 0.4441,
+ "C clf 0.12 rule True": 0.4452,
+ "C clf 0.12 rule False": 0.4418,
+ "C clf 0.16 rule True": 0.4453,
+ "C clf 0.16 rule False": 0.4447,
+ "C clf 0.2 rule True": 0.4465,
+ "C clf 0.2 rule False": 0.4467,
+ "C clf 0.24 rule True": 0.4465,
+ "C clf 0.24 rule False": 0.4475,
+ "C clf 0.28 rule True": 0.445,
+ "C clf 0.28 rule False": 0.4461,
+ "C clf 0.32 rule True": 0.4418,
+ "C clf 0.32 rule False": 0.4429,
+ "D vote: agree >= 0.1, single >= 0.25": 0.4479,
+ "D vote: agree >= 0.1, single >= 0.3": 0.4485,
+ "D vote: agree >= 0.1, single >= 0.35": 0.4483,
+ "D vote: agree >= 0.1, single >= 0.4": 0.4476,
+ "D vote: agree >= 0.15, single >= 0.25": 0.448,
+ "D vote: agree >= 0.15, single >= 0.3": 0.4485,
+ "D vote: agree >= 0.15, single >= 0.35": 0.4484,
+ "D vote: agree >= 0.15, single >= 0.4": 0.4476,
+ "D vote: agree >= 0.2, single >= 0.25": 0.4482,
+ "D vote: agree >= 0.2, single >= 0.3": 0.4487,
+ "D vote: agree >= 0.2, single >= 0.35": 0.4486,
+ "D vote: agree >= 0.2, single >= 0.4": 0.4478,
+ "B best vs A (clf 0.2, rule)": {
+  "setting": "B clf 0.12 rule True",
+  "PQ": 0.4505,
+  "mean diff": -0.0001,
+  "95% interval": [
+   -0.0013,
+   0.001
+  ],
+  "P(better)": 0.406
+ },
+ "C best vs A (clf 0.2, rule)": {
+  "setting": "C clf 0.24 rule False",
+  "PQ": 0.4475,
+  "mean diff": -0.0031,
+  "95% interval": [
+   -0.0069,
+   0.0008
+  ],
+  "P(better)": 0.06
+ },
+ "D best vs A (clf 0.2, rule)": {
+  "setting": "D vote: agree >= 0.2, single >= 0.3",
+  "PQ": 0.4487,
+  "mean diff": -0.0019,
+  "95% interval": [
+   -0.0057,
+   0.0019
+  ],
+  "P(better)": 0.163
+ }
+}

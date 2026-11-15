@@ -11,11 +11,17 @@ A full-resolution (2048 px) U-Net with a ResNet-34 encoder, trained with a Focal
 filament probability map (5 folds, 8-way dihedral test-time augmentation). Instance candidates are cut out of the map by
 hysteresis thresholding (0.15 / 0.8, mask at 0.6) and end-point gap bridging. Each candidate is then re-drawn by two
 instance-conditioned refiners (UNet++ ResNet-34 and ConvNeXt-T U-Net; input = image, probability map, the candidate,
-the other candidates; 256 px crop, 4-rotation TTA, averaged) and pasted back. A gradient-boosted hurdle scorer
-(P(hit) × E[IoU | hit] from 20 per-instance features, trained on out-of-fold candidates and weighted by the number of
-experts per image) keeps candidates with expected PQ contribution ≥ 0.2 and mean probability ≥ 0.7. Masks are eroded
-by 0.5 px and written as non-overlapping COCO RLE. Out-of-fold PQ on the 707 training images against every expert:
-**0.461** (public leaderboard 0.39–0.40). Details are in the technical report (`report/`).
+the other candidates; 256 px crop, 4-rotation TTA, averaged), thresholded at 0.45 and pasted back. A gradient-boosted
+hurdle scorer (P(hit) × E[IoU | hit], trained on out-of-fold candidates and weighted by the number of experts per
+image) uses 20 per-instance features plus 12 refiner-agreement features (how confident the refiners are about the
+re-drawn mask, and how much the two architectures and the rotations disagree) and keeps candidates with expected PQ
+contribution ≥ 0.18 and mean probability ≥ 0.6. Masks are eroded by 0.5 px and written as non-overlapping COCO RLE.
+Out-of-fold PQ on the 707 training images against every expert, with the scorer cross-fitted on the same 5 folds:
+**0.458** (public leaderboard 0.40). Details are in the technical report (`report/`).
+
+The final submission differs from the earlier version (v18: threshold 0.5, 20 features, rule 0.2 / 0.7) in the three
+settings above; under the same cross-fitted protocol v18 scores 0.450 (public 0.39). How these settings and
+`weights/scorer.pkl` were obtained, with the scripts, is in `scripts/final_scorer/`.
 
 ## Repository layout
 
@@ -34,7 +40,8 @@ scripts/
   evaluate.py        score a submission CSV against the training annotations (per expert, PQ/SQ/RQ)
   train_detector.py  Stage 1 training (one fold)
   train_refiner.py   Stage 2 training (one fold, one architecture)
-  fit_scorer.py      instance scorer training on out-of-fold candidates
+  fit_scorer.py      instance scorer training on out-of-fold candidates (20 features, earlier version)
+  final_scorer/      how the final scorer (32 features) and settings were selected and fitted
 notebooks/demo.ipynb end-to-end demo: load weights, predict the test set, write and validate the CSV
 weights/             detector/fold{0-4}.pt, refiner_pp/fold{0-4}.pt, refiner_cx/fold{0-4}.pt, scorer.pkl
 report/              technical report (LaTeX sources and figures)
@@ -54,10 +61,10 @@ python scripts/predict.py --images <path>/test/test_images --weights weights --o
 ```
 
 `submission.csv` has the two columns required by the competition (`filament_id`, `segmentation_rle`) and no overlapping
-masks. Inference takes about 5.5 s per image on an RTX 3070 Ti (8 GB): detector with 5 folds × 8 TTA 2.9 s,
-candidates + two refiners 1.8 s, scorer + post-processing 0.7 s; the 180 test images take 16.5 min. Running this
-command on the test set reproduced our submitted CSV up to floating-point noise (1088 vs 1089 instances, every
-instance matching with IoU > 0.9, 80 % bit-identical). The notebook `notebooks/demo.ipynb` runs the same steps
+masks. Inference takes about 3.6 s per image on an RTX 4090 (24 GB): detector with 5 folds × 8 TTA 1.5 s,
+candidates + two refiners 1.3 s, scorer + post-processing 0.7 s; the 180 test images take 11 min. Running this
+command on the test set reproduced our submitted CSV up to floating-point noise (1,132 vs 1,132 instances, 1,121
+pixel-identical, every instance matching with IoU > 0.9). The notebook `notebooks/demo.ipynb` runs the same steps
 with intermediate visualisations.
 
 To score a prediction on the training images (out-of-fold predictions are needed for a fair number):
@@ -72,7 +79,8 @@ python scripts/evaluate.py --csv submission_train.csv --data <path to MAGFiLO_1.
    out-of-fold / test probability maps.
 2. `scripts/train_refiner.py cands`, then `train --fold k --arch UnetPlusPlus` and
    `train --fold k --encoder tu-convnext_tiny` for k = 0..4 (10–20 min per fold).
-3. `scripts/fit_scorer.py` fits the hurdle scorer on the out-of-fold candidates and writes `weights/scorer.pkl`.
+3. `scripts/fit_scorer.py` fits the 20-feature hurdle scorer on the out-of-fold candidates; the final 32-feature
+   `weights/scorer.pkl` is fitted with the steps in `scripts/final_scorer/README.md`.
 
 All random seeds are fixed; the image-level 5-fold split is `solarfil.data.folds`.
 

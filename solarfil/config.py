@@ -24,10 +24,10 @@ REFINERS = [
     dict(name="refiner_pp", arch="UnetPlusPlus", encoder="resnet34"),
     dict(name="refiner_cx", arch="Unet", encoder="tu-convnext_tiny"),
 ]
-REFINE = dict(thr=0.5, keep_small=0.3, comp="seed")   # threshold; fall back to the candidate if area < 30 %; keep all components touching the candidate
+REFINE = dict(thr=0.45, keep_small=0.3, comp="seed")   # threshold; fall back to the candidate if area < 30 %; keep all components touching the candidate
 
 # Instance scorer rule: keep if  h*m >= clf  and  mean probability >= p_mean  and  normalised disk radius <= r_max
-SCORER = dict(clf=0.2, p_mean=0.7, r_max=0.95)
+SCORER = dict(clf=0.18, p_mean=0.6, r_max=0.95)
 
 # Final erosion of every mask (px); 0.5 = erode at 2x resolution
 SHRINK_PX = 0.5

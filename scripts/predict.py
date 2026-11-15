@@ -20,8 +20,8 @@ from solarfil.candidates import instances
 from solarfil.data import list_stems, read_image, write_submission
 from solarfil.detector import build_detector, ensemble_prob
 from solarfil.postprocess import overlap_count, shrink_all
-from solarfil.refiner import build_refiner, make_crops, paste, predict_refined
-from solarfil.scorer import disk_radius, features
+from solarfil.refiner import build_refiner, make_crops, paste, predict_refined_parts
+from solarfil.scorer import agreement_features, disk_radius, features
 
 
 def load_models(weights, device, scorer=True):
@@ -40,13 +40,13 @@ def predict_image(img, det, ref, scorer, device, timing=None):
     cands = instances(p, C.CANDIDATES, scale=2)                           # 2048 px candidate masks
     if cands:
         X, W = make_crops(img, p, cands)
-        refs = predict_refined(ref, X, device)
-        pred = paste(cands, W, refs, **C.REFINE)
+        refs, Rm, Rs = predict_refined_parts(ref, X, len(C.REFINERS), device)
+        pred, idx, refd = paste(cands, W, refs, **C.REFINE, return_index=True)
     else:
         pred = []
     t2 = time.time()
     if pred and scorer is not None:
-        F = features(pred, [p], img, disk_radius(img))
+        F = np.hstack([features(pred, [p], img, disk_radius(img)), agreement_features(pred, idx, refd, cands, Rm, Rs)])
         keep = scorer.keep(F)
         pred = [r for r, k in zip(pred, keep) if k]
     final = shrink_all(pred, C.SHRINK_PX)

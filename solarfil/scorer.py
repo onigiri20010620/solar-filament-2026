@@ -1,4 +1,5 @@
-"""Instance scorer: 20 per-instance features -> expected PQ contribution (hit probability x IoU given a hit)."""
+"""Instance scorer: 20 per-instance features + 12 refiner-agreement features -> expected PQ contribution
+(hit probability x IoU given a hit)."""
 import pickle
 
 import cv2
@@ -6,10 +7,41 @@ import numpy as np
 from pycocotools import mask as mu
 
 from .candidates import orientation
-from .config import FULL, SCORER
+from .config import FULL, SCORER, REFINE
 
 FEATS = ["log_area", "elong", "length", "width", "fill", "p_mean", "p_max", "p_std", "p_q10", "f07", "f09",
          "m_std", "m_min", "ring_p", "contrast", "core_contrast", "ring_tex", "inside_int", "r", "nn_dist"]
+
+
+# Refiner-agreement features: how confident the refiners are about the re-drawn mask and how much the two
+# architectures / the rotations disagree. Computed per fold and averaged over the folds (out of fold on the training
+# images there is one fold per image, so the distributions match).
+FEATS_REF = ["rq_mean", "rq_q10", "rq_band", "rq_eiou", "rq_soft", "area_ratio", "iou_cand", "refined",
+             "arch_iou", "arch_absdiff", "tta_std", "arch_area_ratio"]
+FEATS_ALL = FEATS + FEATS_REF
+
+
+def _agreement_fold(pred, idx, refd, cands, Ra, Rb, Rsd, thr):
+    """Ra, Rb: uint8 crops (prob x 255) of the two refiner architectures of one fold; Rsd: uint8 (std x 510)."""
+    out = []
+    for r, i, rf in zip(pred, idx, refd):
+        qi = (Ra[i].astype(np.float32) + Rb[i]) / 510; S = qi >= thr; ns = max(S.sum(), 1); ins = qi[S].sum()
+        ao = float(mu.area(r)); ac = float(mu.area(cands[i])); inter = float(mu.area(mu.merge([r, cands[i]], intersect=True)))
+        a1, a2 = Ra[i] >= thr * 255, Rb[i] >= thr * 255; u = (a1 | a2).sum(); d = np.abs(Ra[i].astype(np.float32) - Rb[i]) / 255
+        out.append([ins / ns, float(np.quantile(qi[S], 0.1)) if S.any() else 0, ((qi > 0.25) & (qi < 0.75)).sum() / ns,
+                    ins / (ns + qi.sum() - ins), qi.sum() / ns, ao / ac, inter / (ao + ac - inter), float(rf),
+                    (a1 & a2).sum() / max(u, 1), d[a1 | a2].mean() if u else 0, Rsd[i][S].mean() / 510 if S.any() else 0,
+                    a1.sum() / max(a2.sum(), 1)])
+    return np.array(out, np.float32).reshape(-1, len(FEATS_REF))
+
+
+def agreement_features(pred, idx, refd, cands, Rm, Rs, thr=None):
+    """pred / idx / refd: paste(..., return_index=True); cands: the candidates; Rm, Rs: predict_refined_parts
+    (two architectures, arch-major). Returns float32 [N, len(FEATS_REF)], the mean over the folds."""
+    thr = REFINE["thr"] if thr is None else thr
+    nf = len(Rs); u8 = lambda v: np.round(v * 255).clip(0, 255).astype(np.uint8)
+    return np.mean([_agreement_fold(pred, idx, refd, cands, u8(Rm[f]), u8(Rm[nf + f]),
+                                    np.round(Rs[f] * 510).clip(0, 255).astype(np.uint8), thr) for f in range(nf)], 0)
 
 
 def disk_radius(img_full):
@@ -69,7 +101,7 @@ class Scorer:
     def __init__(self, path):
         d = pickle.load(open(path, "rb"))
         self.h, self.m, self.rule = d["h"], d["m"], d.get("rule", SCORER)
-        assert d.get("feats", FEATS) == FEATS
+        assert d.get("feats", FEATS) == FEATS_ALL, "scorer.pkl was fitted on a different feature list"
 
     def score(self, X):
         if not len(X):

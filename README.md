@@ -17,7 +17,7 @@ image) uses 20 per-instance features plus 12 refiner-agreement features (how con
 re-drawn mask, and how much the two architectures and the rotations disagree) and keeps candidates with expected PQ
 contribution ≥ 0.18 and mean probability ≥ 0.6. Masks are eroded by 0.5 px and written as non-overlapping COCO RLE.
 Out-of-fold PQ on the 707 training images against every expert, with the scorer cross-fitted on the same 5 folds:
-**0.458** (public leaderboard 0.40). Details are in the technical report (`report/`).
+**0.458** (public leaderboard 0.40). Details are in the technical report ([report/report.pdf](report/report.pdf)).
 
 The final submission differs from the earlier version (v18: threshold 0.5, 20 features, rule 0.2 / 0.7) in the three
 settings above; under the same cross-fitted protocol v18 scores 0.450 (public 0.39). How these settings and
@@ -42,9 +42,10 @@ scripts/
   train_refiner.py   Stage 2 training (one fold, one architecture)
   fit_scorer.py      instance scorer training on out-of-fold candidates (20 features, earlier version)
   final_scorer/      how the final scorer (32 features) and settings were selected and fitted
+  report_analysis/   analyses and figures of the technical report (expert agreement, bootstrap intervals)
 notebooks/demo.ipynb end-to-end demo: load weights, predict the test set, write and validate the CSV
 weights/             detector/fold{0-4}.pt, refiner_pp/fold{0-4}.pt, refiner_cx/fold{0-4}.pt, scorer.pkl
-report/              technical report (LaTeX sources and figures)
+report/              technical report: report.pdf, LaTeX sources and figures
 requirements.txt
 ```
 

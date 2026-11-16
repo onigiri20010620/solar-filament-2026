@@ -90,12 +90,12 @@
         Images are split (by image) into 5 folds with a fixed seed and every model is trained 5 times. All numbers in this report are \emph{out-of-fold} (OOF): each training image is predicted by models that never saw it and scored against every expert with the organizers' code.
         Images are used at native resolution as one channel, without flat-fielding or limb-darkening correction; augmentation is flips, $90^\circ$ rotations and an affine intensity change.
 
-    \begin{figure*}[t]
+    \begin{figure}[t]
         \centering
-        \includegraphics[width=\textwidth]{figures/pipeline}
-        \caption{The pipeline on a 640\,px crop of a training image (out-of-fold). From left: input; Stage~1 probability map; candidates (orange) cut from the map; final instances (blue) after re-drawing, selection and 0.5\,px erosion. The small candidate at the bottom is not kept. Settings are listed in Table~\ref{tab:settings}.}
+        \includegraphics[width=\columnwidth]{figures/pipeline}
+        \caption{The pipeline on a 640\,px crop of a training image (out-of-fold): the input, the Stage~1 probability map, the candidates cut from the map (orange), and the final instances after re-drawing, selection and 0.5\,px erosion (blue). The small candidate at the bottom is not kept.}
         \label{fig:pipeline}
-    \end{figure*}
+    \end{figure}
 
     \subsection{Pipeline}\label{sec:pipeline}
         Figure~\ref{fig:pipeline} shows the three stages and Table~\ref{tab:settings} their settings.
@@ -111,7 +111,7 @@
         \textbf{Stage 3, select.}
         Averaged over the experts of an image, a submitted instance earns $h\cdot m$ in PQ and costs half an error otherwise, with $h$ the share of experts who have a matching filament and $m$ the mean IoU of the matches. Two gradient-boosting models estimate $h$ and $m$ from 32 features: 20 describe the instance (size, shape, probability statistics, contrast, position) and 12 describe how consistently it was re-drawn (between the two architectures, between rotations, and against the candidate). An instance is kept if $\hat h\hat m\ge0.18$.
 
-    \begin{table}[!hb]
+    \begin{table}[t]
         \caption{Settings of the final submission.}
         \label{tab:settings}
         \small
@@ -126,18 +126,17 @@
         \end{tabularx}
     \end{table}
 
-    \begin{figure*}[t]
-        \centering
-        \includegraphics[width=\textwidth]{figures/fulldisk}
-        \caption{Example segmentation: the training image of Fig.~\ref{fig:concept}, out-of-fold. The same prediction is scored against each of the three experts (filled: the expert's filaments; outlines: our instances, blue if they hit one of this expert's filaments, red if not). The long filament at the bottom is a hit for experts A and B and a miss for C, who drew it wider.}
-        \label{fig:fulldisk}
-    \end{figure*}
-
-
 % ==================================== %
 %              EVALUATION              %
 % ==================================== %
 \section{Evaluation}\label{sec:evaluation}
+
+    \begin{figure}[t]
+        \centering
+        \includegraphics[width=\columnwidth]{figures/fulldisk}
+        \caption{Example segmentation: the training image of Fig.~\ref{fig:concept}, out-of-fold, scored against each of its three experts. Filled: the expert's filaments. Outlines: our instances. The long filament at the bottom is a hit for experts A and B and a miss for C, who drew it wider.}
+        \label{fig:fulldisk}
+    \end{figure}
 
     \subsection{Evaluation strategy}
         All numbers are OOF on the 707 training images against all 1{,}154 annotation sets; the scorer is cross-fitted on the same 5 folds.
@@ -165,25 +164,25 @@
         \end{tabular}
     \end{table}
 
-    \begin{figure*}[t]
+    \begin{figure}[t]
         \centering
-        \includegraphics[width=\textwidth]{figures/agree}
-        \caption{Reading the errors against expert agreement (multi-expert training images, out-of-fold). (a)~Filaments of one expert that a second expert confirmed: share hit by the third expert and by us. (b)~Our misses that no other expert matched, and our false positives that match another expert of the same image. (c)~Candidates kept and rejected by the scorer, by how many experts have a matching filament.}
-        \label{fig:agree}
-    \end{figure*}
-
-    \begin{figure*}[t]
-        \centering
-        \includegraphics[width=\textwidth]{figures/eval_dist}
-        \caption{The organizers' diagnostics on the 707 training images, out-of-fold (blue), and for one expert against another (gray line in a, b; pale row in c). (a, b)~IoU and Dice of all overlapping (ground truth, prediction) pairs. (c)~Share of filaments with no, exactly one, or several overlapping partners (a split or a merge).}
+        \includegraphics[width=\columnwidth]{figures/eval_dist}
+        \caption{The organizers' diagnostics on the 707 training images, out-of-fold, and for one expert against another. (a, b)~IoU and Dice of all overlapping (ground truth, prediction) pairs. (c)~Share of filaments with no, one, or several overlapping partners.}
         \label{fig:evaldist}
-    \end{figure*}
+    \end{figure}
 
     \subsection{Results}\label{sec:results}
         Table~\ref{tab:progress} gives the scores. The final model reaches PQ~0.458 (5{,}215 true positives, 2{,}078 false positives, 2{,}984 false negatives) and 0.40 on the public leaderboard; across our submissions the public score was $0.87\pm0.02$ times the OOF PQ, so we selected by OOF PQ.
         On the multi-expert images it exceeds the agreement between experts by $+0.116$ PQ (interval $[+0.104, +0.129]$).
         On the organizers' diagnostics (Fig.~\ref{fig:evaldist}) the mean IoU of overlapping pairs is 0.60 and the mean Dice 0.73 (experts: 0.52 and 0.66). Splits and merges are rare: 1.7\,\% of ground-truth filaments overlap two or more predictions and 4.1\,\% of predictions two or more filaments (experts: 3.2\,\%).
         Inference takes 3.6\,s per image on an RTX~4090 (detector 1.5\,s, candidates and re-drawing 1.3\,s, selection and output 0.7\,s), 11~min for the 180 test images. Re-running the public repository reproduces the submitted file (1{,}132 of 1{,}132 filaments; 1{,}121 pixel-identical, the rest with IoU~$>0.9$).
+
+    \begin{figure}[t]
+        \centering
+        \includegraphics[width=\columnwidth]{figures/agree}
+        \caption{Errors read against expert agreement (multi-expert training images, out-of-fold). (a)~Filaments of one expert that a second expert confirmed. (b)~Our misses and false positives against one expert. (c)~Candidates kept and rejected by the scorer.}
+        \label{fig:agree}
+    \end{figure}
 
     \subsection{Errors read against expert agreement}\label{sec:agreement}
         \textbf{The model follows the consensus.}

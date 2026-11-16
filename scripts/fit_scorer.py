@@ -1,4 +1,8 @@
-"""Fit the instance scorer (hurdle model) on out-of-fold candidates of the training images and save weights/scorer.pkl.
+"""Fit the EARLIER 20-feature instance scorer (hurdle model, version v18) on out-of-fold candidates of the training images.
+
+Not the final scorer: the submitted weights/scorer.pkl uses 32 features (20 + 12 refiner-agreement features) and is
+fitted with the steps in scripts/final_scorer/README.md. scripts/predict.py refuses a 20-feature scorer. This script is
+kept to document v18; it writes weights/scorer_v18.pkl by default so that the final weights are not overwritten.
 
 Inputs
   --data      MAGFiLO_1.0_Kaggle_2026 root (annotations + train_images)
@@ -7,7 +11,7 @@ Inputs
 Targets per candidate (from the experts of that image): h = fraction of experts for whom the candidate is a hit (IoU > 0.5),
 m = mean IoU over hits. Rows are weighted by the number of experts of the image (the metric counts an image once per expert).
 
-    python scripts/fit_scorer.py --data <root> --oof_probs runs/detector/fold*/val_prob.npz --refined runs/refiner/refined_0.5ppcx.pkl --out weights/scorer.pkl
+    python scripts/fit_scorer.py --data <root> --oof_probs runs/detector/fold*/val_prob.npz --refined runs/refiner/refined_0.5ppcx.pkl --out weights/scorer_v18.pkl
 """
 import argparse
 import glob
@@ -20,7 +24,7 @@ import numpy as np
 from pycocotools import mask as mu
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from solarfil.config import SCORER
+V18_RULE = dict(clf=0.2, p_mean=0.7, r_max=0.95)   # v18 rule (the final rule in solarfil.config.SCORER is for 32 features)
 from solarfil.data import find_data, load_annotations, read_image
 from solarfil.scorer import FEATS, disk_radius, features
 
@@ -57,7 +61,7 @@ def main():
     ap.add_argument("--data", required=True)
     ap.add_argument("--oof_probs", nargs="+", required=True)
     ap.add_argument("--refined", required=True)
-    ap.add_argument("--out", default="weights/scorer.pkl")
+    ap.add_argument("--out", default="weights/scorer_v18.pkl")
     ap.add_argument("--workers", type=int, default=8)
     a = ap.parse_args()
     from sklearn.ensemble import HistGradientBoostingRegressor
@@ -81,7 +85,7 @@ def main():
     pos = H > 0
     mm = make().fit(X[pos], M[pos] / H[pos], sample_weight=(W * H)[pos])
     os.makedirs(os.path.dirname(a.out) or ".", exist_ok=True)
-    pickle.dump(dict(h=mh, m=mm, feats=FEATS, rule=dict(SCORER)), open(a.out, "wb"))
+    pickle.dump(dict(h=mh, m=mm, feats=FEATS, rule=dict(V18_RULE)), open(a.out, "wb"))
     print("saved", a.out)
 
 

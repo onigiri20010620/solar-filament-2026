@@ -111,10 +111,10 @@
         \textbf{Stage 3, select.}
         Averaged over the experts of an image, a submitted instance earns $h\cdot m$ in PQ and costs half an error otherwise, with $h$ the share of experts who have a matching filament and $m$ the mean IoU of the matches. Two gradient-boosting models estimate $h$ and $m$ from 32 features: 20 describe the instance (size, shape, probability statistics, contrast, position) and 12 describe how consistently it was re-drawn (between the two architectures, between rotations, and against the candidate). An instance is kept if $\hat h\hat m\ge0.18$.
 
-    \begin{table}[t]
+    \begin{table}[!hb]
         \caption{Settings of the final submission.}
         \label{tab:settings}
-        \footnotesize
+        \small
         \begin{tabularx}{\columnwidth}{@{}lX@{}}
             \toprule
             Detector & U-Net, ResNet-34 (ImageNet); 1024\,px crops of the 2048\,px image, 70\,\% centred on a filament; Focal ($\gamma=2$, weight 10) + Dice; 40 epochs, AdamW, one-cycle to $3\cdot10^{-4}$; 5 folds $\times$ 8 flips/rotations averaged \\
@@ -147,20 +147,20 @@
     \begin{table}[t]
         \caption{Results on the training images (out-of-fold) with 95\,\% bootstrap intervals, and on the public leaderboard.}
         \label{tab:progress}
-        \footnotesize
+        \small\setlength{\tabcolsep}{3.5pt}
         \begin{tabular}{@{}lcccc@{}}
             \toprule
             & PQ & SQ & RQ & Public \\
             \midrule
             \multicolumn{5}{@{}l}{\emph{296 images with 2--3 experts}} \\
-            One expert against another & 0.340 {\scriptsize[0.324, 0.355]} & 0.634 & 0.537 & -- \\
-            Ours & 0.456 {\scriptsize[0.444, 0.469]} & 0.678 & 0.673 & -- \\
+            Expert vs. expert & 0.340 {\footnotesize[0.324, 0.355]} & 0.634 & 0.537 & -- \\
+            Ours & 0.456 {\footnotesize[0.444, 0.469]} & 0.678 & 0.673 & -- \\
             \midrule
-            \multicolumn{5}{@{}l}{\emph{All 707 images}} \\
-            Stage 1 candidates + selection & 0.447 & -- & -- & -- \\
+            \multicolumn{5}{@{}l}{\emph{All 707 images (last row: final)}} \\
+            Candidates + selection & 0.447 & -- & -- & -- \\
             Re-drawn, no selection & 0.446 & -- & -- & -- \\
             Re-drawn, fixed rule & 0.454 & -- & -- & -- \\
-            Re-drawn + selection (final) & \textbf{0.458} {\scriptsize[0.449, 0.467]} & 0.681 & 0.673 & \textbf{0.40} \\
+            Re-drawn + selection & \textbf{0.458} {\footnotesize[0.449, 0.467]} & 0.681 & 0.673 & \textbf{0.40} \\
             \bottomrule
         \end{tabular}
     \end{table}
